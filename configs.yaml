@@ -19,6 +19,19 @@ model:
     - 2
   num_res_units: 2
 
+optimizer:
+  name: "Adam"
+  params:
+    lr: 0.001
+    weight_decay: 0.0001
+
+  scheduler:
+    name: torch.optim.Adam
+    params:
+      mode: "min"
+      factor: 0.5
+      patience: 10
+
 dataset:
   image_path: "/data/train/"
   mask_path: "data/nrrd_heart/nrrd_heart/"

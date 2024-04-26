@@ -6,31 +6,25 @@
 
 import os
 
-import monai.data
 import torch
 import torch.nn as nn
 import numpy as np
 import pandas as pd
 
 import matplotlib.pyplot as plt
-from monai.networks.nets import UNet
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from monai.transforms import Compose, LoadImageD, CropForegroundD, ToTensorD, RandSpatialCropD, CenterSpatialCropD, EnsureChannelFirstd, EnsureTyped, NormalizeIntensityd, RandScaleIntensityd, \
-    RandShiftIntensityd, LoadImaged
+import monai.data
+from monai.networks.nets import UNet
+from monai.transforms import Compose, LoadImageD, ToTensorD, RandSpatialCropD, CenterSpatialCropD, \
+    EnsureChannelFirstd, EnsureTyped, NormalizeIntensityd, RandScaleIntensityd, \
+    RandShiftIntensityd, ResizeD
 from monai.metrics import HausdorffDistanceMetric, DiceMetric, MeanIoU
 from monai.losses import DiceFocalLoss
 
 from glob import glob
 
 from tqdm import tqdm
-
-import yaml 
-
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
 
 
 # In[ ]:
@@ -40,7 +34,7 @@ except ImportError:
 config_dict = {}
 try:
     with open("configs.yaml", 'r') as stream:
-        config_dict = yaml.load(stream, Loader)
+        config_dict = monai.bundle.utils.yaml.load(stream, Loader=monai.bundle.utils.yaml.FullLoader)
 except FileNotFoundError:
     print("Config file not found.")
     exit()
@@ -152,7 +146,9 @@ class Trainer:
         if not test:
             self.optimizer.zero_grad()
 
-        for i, (images, masks) in enumerate(self.train_loader if not test else self.test_loader):
+        for i, data_dict in enumerate(self.train_loader if not test else self.test_loader):
+            images, masks = data_dict['image'], data_dict['mask']
+            del data_dict
             loss, logits = self.loss_and_logits(images, masks)
 
             if not test:
@@ -271,8 +267,9 @@ train_transforms = Compose([
     LoadImageD(keys=["image", "mask"], reader="itkreader"),
     EnsureChannelFirstd(keys=["image", "mask"]),
     EnsureTyped(keys=["image", "mask"]),
-    CenterSpatialCropD(keys=["image", "mask"], roi_size=[400, 400, 100]),
-    RandSpatialCropD(keys=["image", "mask"], roi_size=[256, 256, 80], random_size=False),
+    CenterSpatialCropD(keys=["image", "mask"], roi_size=[400, 400, 200]),
+    RandSpatialCropD(keys=["image", "mask"], roi_size=[350, 350, 180], random_size=False),
+    ResizeD(keys=["image", "mask"], spatial_size=[256, 256, 112]),
     NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
     RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
     RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
@@ -281,15 +278,16 @@ train_transforms = Compose([
 
 val_transform = Compose(
     [
-        LoadImaged(keys=["image", "mask"]),
+        LoadImageD(keys=["image", "mask"], reader="itkreader"),
         EnsureChannelFirstd(keys=["image", "mask"]),
         EnsureTyped(keys=["image", "mask"]),
-        CropForegroundD(keys=["image", "mask"], source_key="image", allow_smaller=False),
-        CenterSpatialCropD(keys=["image", "mask"], roi_size=[256, 256, 80]),
+        CenterSpatialCropD(keys=["image", "mask"], roi_size=[350, 350, 180]),
+        ResizeD(keys=["image", "mask"], spatial_size=[256, 256, 112]),
         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         ToTensorD(keys=["image", "mask"]),
     ]
 )
+
 train_set = monai.data.CacheDataset(data[:int(len(data)*0.8)], transform=train_transforms) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[:int(len(data)*0.8)], transform=train_transforms)
 test_set = monai.data.CacheDataset(data[int(len(data)*0.8):], transform=val_transform) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[int(len(data)*0.8):], transform=val_transform)
 
@@ -304,12 +302,12 @@ print(f"Test set size: {len(test_set)}")
 
 
 model = UNet(
-    spatial_dims= config_dict['model']['spatial_dims'],
-    in_channels= config_dict['model']['in_channels'],
-    out_channels= config_dict['model']['out_channels'],
-    channels= config_dict['model']['channels'],
-    strides= config_dict['model']['strides'],
-    num_res_units= config_dict['model']['num_res_units'],
+    spatial_dims=config_dict['model']['spatial_dims'],
+    in_channels=config_dict['model']['in_channels'],
+    out_channels=config_dict['model']['out_channels'],
+    channels=config_dict['model']['channels'],
+    strides=config_dict['model']['strides'],
+    num_res_units=config_dict['model']['num_res_units'],
 )
 
 
@@ -318,7 +316,7 @@ optimizer = torch.optim.Adam(model.parameters(), config_dict['optimizer']['param
 
 lr_scheduler = ReduceLROnPlateau(optimizer, config_dict['optimizer']['scheduler']['params']['mode'], factor=config_dict['optimizer']['scheduler']['params']['factor'], patience=config_dict['optimizer']['scheduler']['params']['patience'])
 
-criterion = DiceFocalLoss()
+criterion = DiceFocalLoss(sigmoid=True, gamma=0.75, squared_pred=True, reduction='mean')
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 

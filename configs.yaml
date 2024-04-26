@@ -9,12 +9,12 @@ model:
     - 32
     - 64
   strides:
-    - - 3
+    - - 4
       - 4
-      - 4
+      - 2
     - - 2
       - 2
-      - 4
+      - 2
     - 2
     - 2
   num_res_units: 2
@@ -39,7 +39,7 @@ dataset:
   mask_path:
     - "../../../datasets/tdt4265/mic/asoca/Diseased/Annotations/"
     - "../../../datasets/tdt4265/mic/asoca/Normal/Annotations/"
-  cache_dataset: False
+  cache_dataset: True
 trainer:
   epochs: 30
   lr: 0.0001

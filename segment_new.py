@@ -47,10 +47,10 @@ class Meter:
     '''factory for storing and updating iou and dice scores.'''
 
     def __init__(self):
-        self.haus_dorf = HausdorffDistanceMetric(percentile=0.95, reduction='mean', include_background=False,
+        self.haus_dorf = HausdorffDistanceMetric(include_background=True, percentile=0.95, reduction='mean',
                                                  get_not_nans=False)
-        self.dice = DiceMetric(include_background=False, reduction='mean', get_not_nans=False)
-        self.iou = MeanIoU(include_background=False, reduction='mean', get_not_nans=False)
+        self.dice = DiceMetric( reduction='mean', get_not_nans=False)
+        self.iou = MeanIoU(reduction='mean', get_not_nans=False)
 
     def update(self, logits: torch.Tensor, targets: torch.Tensor):
         """
@@ -128,7 +128,7 @@ class Trainer:
 
         logits = self.model(images)
         loss = self.criterion(logits, masks)
-        return loss, logits
+        return loss, torch.nn.functional.sigmoid(logits)
 
     def next_epoch(self, epoch, test=False):
         self.model.train() if not test else self.model.eval()

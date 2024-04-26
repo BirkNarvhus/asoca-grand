@@ -118,15 +118,6 @@ class Trainer:
 
         self.checkpoint_interval = checkpoint_interval
 
-        if not os.path.exists(self.log_dir):
-            os.makedirs(self.log_dir)
-
-        if not os.path.exists(self.checkpoint_dir):
-            os.makedirs(self.checkpoint_dir)
-
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-
         self.best_test_loss = np.inf
 
         self.meter = Meter()

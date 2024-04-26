@@ -33,16 +33,20 @@ optimizer:
       patience: 10
 
 dataset:
-  image_path: "/data/train/"
-  mask_path: "data/nrrd_heart/nrrd_heart/"
-
+  image_path:
+    - "/datasets/tdt4265/mic/asoca/Diseased/CTCA/"
+    - "/datasets/tdt4265/mic/asoca/Normal/CTCA/"
+  mask_path:
+    - "/datasets/tdt4265/mic/asoca/Diseased/Annotations/"
+    - "/datasets/tdt4265/mic/asoca/Normal/Annotations/"
+  cache_dataset: True
 trainer:
-  epochs: 100
-  lr: 0.001
+  epochs: 30
+  lr: 0.0001
   batch_size: 8
   num_workers: 4
   output_dir: "/data/output/"
   log_dir: "/data/output/logs/"
   checkpoint_dir: "/data/output/checkpoints/"
-  plot: True
+  plot: False
   checkpoint_interval: 5

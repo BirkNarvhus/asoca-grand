@@ -34,17 +34,17 @@ optimizer:
 
 dataset:
   image_path:
-    - "/datasets/tdt4265/mic/asoca/Diseased/CTCA/"
-    - "/datasets/tdt4265/mic/asoca/Normal/CTCA/"
+    - "../../../datasets/tdt4265/mic/asoca/Diseased/CTCA/"
+    - "../../../datasets/tdt4265/mic/asoca/Normal/CTCA/"
   mask_path:
-    - "/datasets/tdt4265/mic/asoca/Diseased/Annotations/"
-    - "/datasets/tdt4265/mic/asoca/Normal/Annotations/"
-  cache_dataset: True
+    - "../../../datasets/tdt4265/mic/asoca/Diseased/Annotations/"
+    - "../../../datasets/tdt4265/mic/asoca/Normal/Annotations/"
+  cache_dataset: False
 trainer:
   epochs: 30
   lr: 0.0001
   batch_size: 8
-  num_workers: 4
+  num_workers: 0
   output_dir: "/data/output/"
   log_dir: "/data/output/logs/"
   checkpoint_dir: "/data/output/checkpoints/"

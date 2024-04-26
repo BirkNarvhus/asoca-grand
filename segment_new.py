@@ -313,7 +313,11 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 print("running on device: ", device)
 
-trainer = Trainer(model, optimizer, criterion, train_loader, test_loader, epochs=config_dict['trainer']['epochs'], plot=config_dict['trainer']['plot'], device=device, log_dir=config_dict['trainer']['log_dir'], checkpoint_dir=config_dict['trainer']['checkpoint_dir'], output_dir=config_dict['trainer']['output_dir'], checkpoint_interval=config_dict['trainer']['checkpoint_interval'])
+trainer = Trainer(model, optimizer, criterion, train_loader, test_loader, epochs=config_dict['trainer']['epochs'],
+                  lr_scheduler=lr_scheduler, plot=config_dict['trainer']['plot'], device=device,
+                  log_dir=config_dict['trainer']['log_dir'], checkpoint_dir=config_dict['trainer']['checkpoint_dir'],
+                  output_dir=config_dict['trainer']['output_dir'],
+                  checkpoint_interval=config_dict['trainer']['checkpoint_interval'])
 
 
 # In[ ]:

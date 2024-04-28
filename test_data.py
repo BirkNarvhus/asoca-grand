@@ -80,6 +80,9 @@ test_loader = monai.data.DataLoader(test_set, batch_size=config_dict['trainer'][
 print(f"Train set size: {len(train_set)}")
 print(f"Test set size: {len(test_set)}")
 
+print(np.max(train_set[0]['image']), np.min(train_set[0]['image']))
+print(np.max(train_set[0]['mask']), np.min(train_set[0]['mask']))
+
 # In[ ]:
 
 item = iter(train_loader).__next__()

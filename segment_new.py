@@ -21,6 +21,7 @@ from monai.transforms import Compose, LoadImageD, ToTensorD, RandSpatialCropD, C
     EnsureChannelFirstd, EnsureTyped, NormalizeIntensityd, RandScaleIntensityd, \
     RandShiftIntensityd, ResizeD
 from monai.losses import DiceFocalLoss
+
 from monai.metrics import HausdorffDistanceMetric
 
 from glob import glob
@@ -65,20 +66,11 @@ def iou_metric(y_pred, y):
     return np.mean(batch_dice)
 
 
-def hausdorff_metric(y_pred, y):
-    hasdorff = []
-    for _y_pred, _y in zip(y_pred, y):
-        y_pred = np.moveaxis(_y_pred, 0, -1)
-        y = np.moveaxis(_y.cpu().numpy(), 0, -1)
-        hasdorff.append(HausdorffDistanceMetric(include_background=True, get_not_nans=False)(y_pred=y_pred, y=y))
-    return np.mean(hasdorff)
-
-
 class Meter:
     '''factory for storing and updating iou and dice scores.'''
 
     def __init__(self):
-        self.haus_dorf = []
+        self.haus_dorf = HausdorffDistanceMetric(include_background=True, get_not_nans=False, percentile=95.0)
         self.dice = []
         self.iou = []
 
@@ -91,10 +83,9 @@ class Meter:
 
         dice = dice_metric(preds, targets)
         iou = iou_metric(preds, targets)
-        hausdorff = hausdorff_metric(preds, targets)
+        self.haus_dorf(preds, targets)
         self.dice.append(dice)
         self.iou.append(iou)
-        self.haus_dorf.append(hausdorff)
 
     def get_metrics(self):
         """
@@ -102,13 +93,13 @@ class Meter:
         """
         dice = np.mean(self.dice)
         iou = np.mean(self.iou)
-        hausdorff = np.mean(self.haus_dorf)
+        hausdorff = self.haus_dorf.aggregate().item()
         return dice, iou, hausdorff
 
     def reset(self):
         self.dice = []
         self.iou = []
-        self.haus_dorf = []
+        self.haus_dorf.reset()
 
 
 # In[ ]:

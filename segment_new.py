@@ -19,7 +19,7 @@ import monai.data
 from monai.networks.nets import UNet
 from monai.transforms import Compose, LoadImageD, ToTensorD, RandSpatialCropD, CenterSpatialCropD, \
     EnsureChannelFirstd, EnsureTyped, NormalizeIntensityd, RandScaleIntensityd, \
-    RandShiftIntensityd, ResizeD
+    RandShiftIntensityd, ResizeD, Activationsd, AsDiscreted
 from monai.metrics import HausdorffDistanceMetric, DiceMetric, MeanIoU
 from monai.losses import DiceFocalLoss
 
@@ -43,6 +43,14 @@ except FileNotFoundError:
 
 # In[ ]:
 
+post_transform = Compose(
+    [
+        Activationsd(keys="pred", sigmoid=True),
+        AsDiscreted(keys="pred", argmax=True, to_onehot=True),
+        AsDiscreted(keys="mask", to_onehot=True),
+    ]
+)
+
 
 class Meter:
     '''factory for storing and updating iou and dice scores.'''
@@ -58,11 +66,12 @@ class Meter:
         Takes: logits from output model and targets,
         calculates dice and iou scores, and stores them in lists.
         """
-        logits = torch.nn.Sigmoid()(logits)
+        data = [{'pred': pred, 'mask': mask} for pred, mask in zip(logits, targets)]
+        data = post_transform(data)
 
-        self.haus_dorf(logits, targets)
-        self.dice(logits, targets)
-        self.iou(logits, targets)
+        self.haus_dorf(data['image'], data['mask'])
+        self.dice(data['image'], data['mask'])
+        self.iou(data['image'], data['mask'])
 
     def get_metrics(self):
         """
@@ -284,6 +293,7 @@ val_transform = Compose(
         ToTensorD(keys=["image", "mask"]),
     ]
 )
+
 
 train_set = monai.data.CacheDataset(data[:int(len(data)*0.8)], transform=train_transforms) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[:int(len(data)*0.8)], transform=train_transforms)
 test_set = monai.data.CacheDataset(data[int(len(data)*0.8):], transform=val_transform) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[int(len(data)*0.8):], transform=val_transform)

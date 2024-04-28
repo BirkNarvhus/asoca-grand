@@ -48,5 +48,5 @@ trainer:
   output_dir: "./data/output/"
   log_dir: "./data/output/logs/"
   checkpoint_dir: "./data/output/checkpoints/"
-  plot: True
+  plot: False
   checkpoint_interval: 5

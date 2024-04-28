@@ -184,7 +184,8 @@ class Trainer:
                 torch.save(self.model.state_dict(), self.output_dir + "/" + 'best_model.pth')
 
             if (epoch + 1) % self.checkpoint_interval == 0:
-                print(f"Saving checkpoint at epoch: {epoch + 1}")
+                print(f"Saving checkpoint at epoch: {epoch + 1}, test loss: {test_loss:.4f} and metrics: dice - {metrics[0]:.6f} iou - {metrics[1]:.6f}",
+                      f"hassdorf - {metrics[2]:.6f}")
                 torch.save(self.model.state_dict(), self.checkpoint_dir + "/" + f'epoch_{epoch + 1}.pth')
         if not test_one:
             self.save_log()

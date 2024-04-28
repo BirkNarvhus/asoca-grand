@@ -43,49 +43,50 @@ except FileNotFoundError:
 
 # In[ ]:
 
-post_transform = Compose(
-    [
-        Activationsd(keys="pred", sigmoid=True),
-        AsDiscreted(keys="pred", argmax=True,),
-        AsDiscreted(keys="mask"),
-    ]
-)
+def dice_metric(y_pred, y):
+    return (2.0 * (y_pred * y).sum() + 1e-7) / (y_pred.sum() + y.sum() + 1e-7)
 
+
+def iou_metric(y_pred, y):
+    return (y_pred * y).sum() / ((y_pred + y).sum() - (y_pred * y).sum() + 1e-7)
+
+
+def hausdorff_metric(y_pred, y):
+    return (y_pred * y).sum() / (y_pred.sum() + y.sum() - (y_pred * y).sum() + 1e-7)
 
 class Meter:
     '''factory for storing and updating iou and dice scores.'''
 
     def __init__(self):
-        self.haus_dorf = HausdorffDistanceMetric(include_background=True, percentile=0.95, reduction='mean_batch',
-                                                 get_not_nans=False)
-        self.dice = DiceMetric(reduction='mean_batch', get_not_nans=False)
-        self.iou = MeanIoU(reduction='mean_batch', get_not_nans=False)
+        self.haus_dorf = []
+        self.dice = []
+        self.iou = []
 
     def update(self, logits: torch.Tensor, targets: torch.Tensor):
         """
         Takes: logits from output model and targets,
         calculates dice and iou scores, and stores them in lists.
         """
-        data = {'pred': logits, 'mask': targets}
-        data = post_transform(data)
-
-        self.haus_dorf(data['pred'], data['mask'])
-        self.dice(data['pred'], data['mask'])
-        self.iou(data['pred'], data['mask'])
+        dice = dice_metric(logits, targets)
+        iou = iou_metric(logits, targets)
+        hausdorff = hausdorff_metric(logits, targets)
+        self.dice.append(dice)
+        self.iou.append(iou)
+        self.haus_dorf.append(hausdorff)
 
     def get_metrics(self):
         """
         Returns: the average of the accumulated dice and iou scores.
         """
-        dice = self.dice.aggregate().item()
-        iou = self.iou.aggregate().item()
-        hausdorff = self.haus_dorf.aggregate().item()
+        dice = np.mean(self.dice)
+        iou = np.mean(self.iou)
+        hausdorff = np.mean(self.haus_dorf)
         return dice, iou, hausdorff
 
     def reset(self):
-        self.dice.reset()
-        self.iou.reset()
-        self.haus_dorf.reset()
+        self.dice = []
+        self.iou = []
+        self.haus_dorf = []
 
 
 # In[ ]:

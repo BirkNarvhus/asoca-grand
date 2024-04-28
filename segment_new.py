@@ -69,9 +69,9 @@ class Meter:
         data = {'pred': logits, 'mask': targets}
         data = post_transform(data)
 
-        self.haus_dorf(data['image'], data['mask'])
-        self.dice(data['image'], data['mask'])
-        self.iou(data['image'], data['mask'])
+        self.haus_dorf(data['pred'], data['mask'])
+        self.dice(data['pred'], data['mask'])
+        self.iou(data['pred'], data['mask'])
 
     def get_metrics(self):
         """

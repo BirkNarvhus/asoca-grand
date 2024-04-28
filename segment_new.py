@@ -33,7 +33,7 @@ from tqdm import tqdm
 # Load the configuration file
 config_dict = {}
 try:
-    with open("configs.yaml", 'r') as stream:
+    with open("configs2.yaml", 'r') as stream:
         config_dict = monai.bundle.utils.yaml.load(stream, Loader=monai.bundle.utils.yaml.FullLoader)
 except FileNotFoundError:
     print("Config file not found.")
@@ -47,9 +47,9 @@ class Meter:
     '''factory for storing and updating iou and dice scores.'''
 
     def __init__(self):
-        self.haus_dorf = HausdorffDistanceMetric(include_background=True, percentile=0.95, reduction='mean',
+        self.haus_dorf = HausdorffDistanceMetric(include_background=False, percentile=0.95, reduction='mean',
                                                  get_not_nans=False)
-        self.dice = DiceMetric( reduction='mean', get_not_nans=False)
+        self.dice = DiceMetric(reduction='mean', get_not_nans=False)
         self.iou = MeanIoU(reduction='mean', get_not_nans=False)
 
     def update(self, logits: torch.Tensor, targets: torch.Tensor):
@@ -58,7 +58,7 @@ class Meter:
         calculates dice and iou scores, and stores them in lists.
         """
         self.haus_dorf(logits, targets)
-        self.dice(logits, targets)
+        self.dice(logits, targets, gamma=0.75, squared_pred=True)
         self.iou(logits, targets)
 
     def get_metrics(self):
@@ -128,7 +128,7 @@ class Trainer:
 
         logits = self.model(images)
         loss = self.criterion(logits, masks)
-        return loss, torch.nn.functional.sigmoid(logits)
+        return loss, logits
 
     def next_epoch(self, epoch, test=False):
         self.model.train() if not test else self.model.eval()
@@ -241,8 +241,9 @@ def get_paths(path_array):
     
     allPaths = []
     for path in path_array:
+        allPaths.append(sorted(glob(path + '/*/')))
         allPaths.append(sorted(glob(os.path.join(path, '*.nrrd'))))
-    return list(np.reshape(allPaths, -1))
+    return list([item for sublist in allPaths for item in sublist])
 
 
 # In[ ]:
@@ -250,8 +251,6 @@ def get_paths(path_array):
 
 path_to_image = get_paths(config_dict['dataset']['image_path'])
 path_to_masks = get_paths(config_dict['dataset']['mask_path'])
-
-
 data = [{'image': image, 'mask': mask} for image, mask in zip(path_to_image, path_to_masks)]
 
 train_transforms = Compose([
@@ -323,5 +322,5 @@ trainer = Trainer(model, optimizer, criterion, train_loader, test_loader, epochs
 # In[ ]:
 
 
-trainer.train()
+#trainer.train()
 

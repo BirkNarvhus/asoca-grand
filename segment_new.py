@@ -46,8 +46,8 @@ except FileNotFoundError:
 post_transform = Compose(
     [
         Activationsd(keys="pred", sigmoid=True),
-        AsDiscreted(keys="pred", argmax=True, to_onehot=1),
-        AsDiscreted(keys="mask", to_onehot=1),
+        AsDiscreted(keys="pred", argmax=True,),
+        AsDiscreted(keys="mask"),
     ]
 )
 

@@ -66,7 +66,7 @@ class Meter:
         Takes: logits from output model and targets,
         calculates dice and iou scores, and stores them in lists.
         """
-        data = [{'pred': pred, 'mask': mask} for pred, mask in zip(logits, targets)]
+        data = {'pred': logits, 'mask': targets}
         data = post_transform(data)
 
         self.haus_dorf(data['image'], data['mask'])

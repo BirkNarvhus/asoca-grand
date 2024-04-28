@@ -50,8 +50,8 @@ class Meter:
     def __init__(self):
         self.haus_dorf = HausdorffDistanceMetric(include_background=True, percentile=0.95, reduction='mean',
                                                  get_not_nans=False)
-        self.dice = DiceMetric(reduction='mean', get_not_nans=False)
-        self.iou = MeanIoU(reduction='mean', get_not_nans=False)
+        self.dice = DiceMetric(reduction='none', get_not_nans=False)
+        self.iou = MeanIoU(reduction='none', get_not_nans=False)
 
     def update(self, logits: torch.Tensor, targets: torch.Tensor):
         """
@@ -61,7 +61,7 @@ class Meter:
         logits = torch.nn.Sigmoid()(logits)
 
         self.haus_dorf(logits, targets)
-        self.dice(logits, targets,)
+        self.dice(logits, targets)
         self.iou(logits, targets)
 
     def get_metrics(self):
@@ -180,8 +180,6 @@ class Trainer:
                       f"hassdorf - {metrics[2]:.4f}")
                 break
             if test_loss < self.best_test_loss:
-                print(
-                    f"Saving best model with test loss: {test_loss:.4f} and metrics: dice - {metrics[0]:.4f} iou - {metrics[1]:.4f} hassdorf - {metrics[2]:.4f} at epoch: {epoch + 1}")
                 self.best_test_loss = test_loss
                 torch.save(self.model.state_dict(), self.output_dir + "/" + 'best_model.pth')
 

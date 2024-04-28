@@ -21,8 +21,8 @@ from monai.transforms import Compose, LoadImageD, ToTensorD, RandSpatialCropD, C
     EnsureChannelFirstd, EnsureTyped, NormalizeIntensityd, RandScaleIntensityd, \
     RandShiftIntensityd, ResizeD
 from monai.losses import DiceFocalLoss
+from monai.metrics import HausdorffDistanceMetric
 
-from scipy.spatial.distance import directed_hausdorff
 from glob import glob
 
 from tqdm import tqdm
@@ -68,7 +68,9 @@ def iou_metric(y_pred, y):
 def hausdorff_metric(y_pred, y):
     hasdorff = []
     for _y_pred, _y in zip(y_pred, y):
-        hasdorff.append(directed_hausdorff(_y_pred[0], _y[0])[0])
+        y_pred = np.moveaxis(_y_pred, 0, -1)
+        y = np.moveaxis(_y.cpu().numpy(), 0, -1)
+        hasdorff.append(HausdorffDistanceMetric(include_background=True, get_not_nans=False)(y_pred=y_pred, y=y))
     return np.mean(hasdorff)
 
 

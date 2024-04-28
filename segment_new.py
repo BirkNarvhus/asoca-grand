@@ -48,7 +48,7 @@ class Meter:
     '''factory for storing and updating iou and dice scores.'''
 
     def __init__(self):
-        self.haus_dorf = HausdorffDistanceMetric(include_background=False, percentile=0.95, reduction='mean',
+        self.haus_dorf = HausdorffDistanceMetric(include_background=True, percentile=0.95, reduction='mean',
                                                  get_not_nans=False)
         self.dice = DiceMetric(reduction='mean', get_not_nans=False)
         self.iou = MeanIoU(reduction='mean', get_not_nans=False)
@@ -59,7 +59,7 @@ class Meter:
         calculates dice and iou scores, and stores them in lists.
         """
         self.haus_dorf(logits, targets)
-        self.dice(logits, targets, gamma=0.75, squared_pred=True)
+        self.dice(logits, targets,)
         self.iou(logits, targets)
 
     def get_metrics(self):

@@ -5,6 +5,7 @@
 
 
 import os
+import sys
 
 import torch
 import torch.nn as nn
@@ -172,6 +173,10 @@ class Trainer:
             if self.plot:
                 self.plot_metrics()
 
+            if test:
+                print(f"1 epoch test loss: {test_loss:.4f} and metrics: dice - {metrics[0]:.4f} iou - {metrics[1]:.4f}",
+                      f"hassdorf - {metrics[2]:.4f}")
+                break
             if test_loss < self.best_test_loss:
                 print(
                     f"Saving best model with test loss: {test_loss:.4f} and metrics: dice - {metrics[0]:.4f} iou - {metrics[1]:.4f} hassdorf - {metrics[2]:.4f} at epoch: {epoch + 1}")
@@ -181,8 +186,8 @@ class Trainer:
             if (epoch + 1) % self.checkpoint_interval == 0:
                 print(f"Saving checkpoint at epoch: {epoch + 1}")
                 torch.save(self.model.state_dict(), self.checkpoint_dir + "/" + f'epoch_{epoch + 1}.pth')
-
-        self.save_log()
+        if not test:
+            self.save_log()
 
     def plot_metrics(self):
         plt.figure(figsize=(12, 6))
@@ -320,7 +325,15 @@ trainer = Trainer(model, optimizer, criterion, train_loader, test_loader, epochs
 
 
 # In[ ]:
+test = False
 
 
-#trainer.train()
+if len(sys.argv) > 2:
+    trainer.load_model(sys.argv[2])
+
+if len(sys.argv) > 3:
+    if sys.argv[2] == 'test':
+        test = True
+
+trainer.train()
 

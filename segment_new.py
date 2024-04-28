@@ -68,7 +68,7 @@ def iou_metric(y_pred, y):
 def hausdorff_metric(y_pred, y):
     hasdorff = []
     for _y_pred, _y in zip(y_pred, y):
-        hasdorff.append(directed_hausdorff(_y_pred, _y)[0])
+        hasdorff.append(directed_hausdorff(_y_pred[0], _y[0])[0])
     return np.mean(hasdorff)
 
 

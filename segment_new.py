@@ -16,17 +16,20 @@ import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import monai.data
-from monai.networks.nets import UNet
+from monai.networks.nets import UNet, DynUNet
 from monai.transforms import Compose, LoadImageD, ToTensorD, RandSpatialCropD, CenterSpatialCropD, \
     EnsureChannelFirstd, EnsureTyped, NormalizeIntensityd, RandScaleIntensityd, \
-    RandShiftIntensityd, ResizeD, Activationsd, AsDiscreted
-from monai.metrics import HausdorffDistanceMetric, DiceMetric, MeanIoU
+    RandShiftIntensityd, ResizeD
+from monai.metrics import HausdorffDistanceMetric
 from monai.losses import DiceFocalLoss
+
+from segmentation_models_pytorch import Unet as PretrainedUnet, UnetPlusPlus
 
 from glob import glob
 
 from tqdm import tqdm
 
+from customModel import CustomModel
 
 # In[ ]:
 
@@ -44,15 +47,32 @@ except FileNotFoundError:
 # In[ ]:
 
 def dice_metric(y_pred, y):
-    return (2.0 * (y_pred * y).sum() + 1e-7) / (y_pred.sum() + y.sum() + 1e-7)
+    y_pred = (y_pred > 0.5).float()
+    batch_dice = []
+    for _y_pred, _y in zip(y_pred, y):
+        intersection = (_y_pred * _y).sum()
+        union = _y_pred.sum() + _y.sum()
+        batch_dice.append((2.0 * intersection + 1e-7) / (union + 1e-7))
+
+    return np.mean(batch_dice)
 
 
 def iou_metric(y_pred, y):
-    return (y_pred * y).sum() / ((y_pred + y).sum() - (y_pred * y).sum() + 1e-7)
+    y_pred = (y_pred > 0.5).float()
+    batch_dice = []
+    for _y_pred, _y in zip(y_pred, y):
+        intersection = (_y_pred * _y).sum()
+        union = _y_pred.sum() + _y.sum()
+        batch_dice.append((intersection + 1e-7) / (union - intersection + 1e-7))
+    return np.mean(batch_dice)
 
 
 def hausdorff_metric(y_pred, y):
-    return (y_pred * y).sum() / (y_pred.sum() + y.sum() - (y_pred * y).sum() + 1e-7)
+    hasdorff = []
+    for _y_pred, _y in zip(y_pred, y):
+        hasdorff.append(HausdorffDistanceMetric(include_background=True)(y_pred=_y_pred, y=_y))
+    return np.mean(hasdorff)
+
 
 class Meter:
     '''factory for storing and updating iou and dice scores.'''
@@ -67,9 +87,11 @@ class Meter:
         Takes: logits from output model and targets,
         calculates dice and iou scores, and stores them in lists.
         """
-        dice = dice_metric(logits, targets)
-        iou = iou_metric(logits, targets)
-        hausdorff = hausdorff_metric(logits, targets)
+        preds = torch.nn.functional.sigmoid(logits)
+
+        dice = dice_metric(preds, targets)
+        iou = iou_metric(preds, targets)
+        hausdorff = hausdorff_metric(preds, targets)
         self.dice.append(dice)
         self.iou.append(iou)
         self.haus_dorf.append(hausdorff)
@@ -175,12 +197,23 @@ class Trainer:
         return epoch_loss, (dice, iou, hausdorff)
 
     def train(self):
+        loss_history = []
         for epoch in tqdm(range(self.epochs)):
             self.next_epoch(epoch, test=False)
 
             with torch.no_grad():
                 test_loss, metrics = self.next_epoch(epoch, test=True)
                 self.lr_scheduler.step(test_loss)
+
+            loss_history.append(test_loss)
+
+
+            # Early stopping
+            if len(loss_history) > 4:
+                if loss_history[-1] > loss_history[-2] > loss_history[-3] > loss_history[-4]:
+                    print("Early stopping")
+                    break
+                loss_history.pop(0)
 
             if self.plot:
                 self.plot_metrics()
@@ -296,6 +329,28 @@ val_transform = Compose(
 )
 
 
+
+
+
+# In[ ]:
+
+if config_dict['model']['model_type'] == 0:
+    model = UNet(
+        spatial_dims=config_dict['model']['spatial_dims'],
+        in_channels=config_dict['model']['in_channels'],
+        out_channels=config_dict['model']['out_channels'],
+        channels=config_dict['model']['channels'],
+        strides=config_dict['model']['strides'],
+        num_res_units=config_dict['model']['num_res_units'],
+        dropout=config_dict['model']['dropout_prob'])
+else:
+    model = CustomModel(
+        in_channels=config_dict['model']['in_channels'],
+        out_channels=config_dict['model']['out_channels'],
+        channels=config_dict['model']['channels'],
+        strides=config_dict['model']['strides'])
+
+
 train_set = monai.data.CacheDataset(data[:int(len(data)*0.8)], transform=train_transforms) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[:int(len(data)*0.8)], transform=train_transforms)
 test_set = monai.data.CacheDataset(data[int(len(data)*0.8):], transform=val_transform) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[int(len(data)*0.8):], transform=val_transform)
 
@@ -305,24 +360,12 @@ test_loader = monai.data.DataLoader(test_set, batch_size=config_dict['trainer'][
 print(f"Train set size: {len(train_set)}")
 print(f"Test set size: {len(test_set)}")
 
-
-# In[ ]:
-
-
-model = UNet(
-    spatial_dims=config_dict['model']['spatial_dims'],
-    in_channels=config_dict['model']['in_channels'],
-    out_channels=config_dict['model']['out_channels'],
-    channels=config_dict['model']['channels'],
-    strides=config_dict['model']['strides'],
-    num_res_units=config_dict['model']['num_res_units'],
-)
-
-
 optimizer = torch.optim.Adam(model.parameters(), config_dict['optimizer']['params']['lr'])
 
 
-lr_scheduler = ReduceLROnPlateau(optimizer, config_dict['optimizer']['scheduler']['params']['mode'], factor=config_dict['optimizer']['scheduler']['params']['factor'], patience=config_dict['optimizer']['scheduler']['params']['patience'])
+lr_scheduler = ReduceLROnPlateau(optimizer, config_dict['optimizer']['scheduler']['params']['mode'],
+                                 factor=config_dict['optimizer']['scheduler']['params']['factor'],
+                                 patience=config_dict['optimizer']['scheduler']['params']['patience'])
 
 criterion = DiceFocalLoss(sigmoid=True, gamma=0.75, squared_pred=True, reduction='mean')
 

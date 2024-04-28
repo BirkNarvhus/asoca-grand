@@ -58,6 +58,8 @@ class Meter:
         Takes: logits from output model and targets,
         calculates dice and iou scores, and stores them in lists.
         """
+        logits = torch.nn.Sigmoid()(logits)
+
         self.haus_dorf(logits, targets)
         self.dice(logits, targets,)
         self.iou(logits, targets)

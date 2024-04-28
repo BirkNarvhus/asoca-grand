@@ -48,10 +48,10 @@ class Meter:
     '''factory for storing and updating iou and dice scores.'''
 
     def __init__(self):
-        self.haus_dorf = HausdorffDistanceMetric(include_background=True, percentile=0.95, reduction='mean',
+        self.haus_dorf = HausdorffDistanceMetric(include_background=True, percentile=0.95, reduction='mean_batch',
                                                  get_not_nans=False)
-        self.dice = DiceMetric(reduction='none', get_not_nans=False)
-        self.iou = MeanIoU(reduction='none', get_not_nans=False)
+        self.dice = DiceMetric(reduction='mean_batch', get_not_nans=False)
+        self.iou = MeanIoU(reduction='mean_batch', get_not_nans=False)
 
     def update(self, logits: torch.Tensor, targets: torch.Tensor):
         """

@@ -34,7 +34,7 @@ from tqdm import tqdm
 # Load the configuration file
 config_dict = {}
 try:
-    with open("configs2.yaml", 'r') as stream:
+    with open("configs.yaml", 'r') as stream:
         config_dict = monai.bundle.utils.yaml.load(stream, Loader=monai.bundle.utils.yaml.FullLoader)
 except FileNotFoundError:
     print("Config file not found.")

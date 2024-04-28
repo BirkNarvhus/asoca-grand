@@ -334,7 +334,7 @@ if len(sys.argv) > 2:
         test = True
 
 if len(sys.argv) == 2:
-    if sys.argv[2] == 'test':
+    if sys.argv[1] == 'test':
         test = True
 
 trainer.train()

@@ -16,14 +16,13 @@ import matplotlib.pyplot as plt
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import monai.data
-from monai.networks.nets import UNet, DynUNet
+from monai.networks.nets import UNet
 from monai.transforms import Compose, LoadImageD, ToTensorD, RandSpatialCropD, CenterSpatialCropD, \
     EnsureChannelFirstd, EnsureTyped, NormalizeIntensityd, RandScaleIntensityd, \
     RandShiftIntensityd, ResizeD
 from monai.metrics import HausdorffDistanceMetric
 from monai.losses import DiceFocalLoss
 
-from segmentation_models_pytorch import Unet as PretrainedUnet, UnetPlusPlus
 
 from glob import glob
 

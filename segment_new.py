@@ -309,7 +309,7 @@ train_transforms = Compose([
     EnsureTyped(keys=["image", "mask"]),
     CenterSpatialCropD(keys=["image", "mask"], roi_size=[400, 400, 200]),
     RandSpatialCropD(keys=["image", "mask"], roi_size=[350, 350, 180], random_size=False),
-    ResizeD(keys=["image", "mask"], spatial_size=[256, 256, 112]),
+    ResizeD(keys=["image", "mask"], spatial_size=[256, 256, 64]),
     NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
     RandScaleIntensityd(keys="image", factors=0.1, prob=1.0),
     RandShiftIntensityd(keys="image", offsets=0.1, prob=1.0),
@@ -322,7 +322,7 @@ val_transform = Compose(
         EnsureChannelFirstd(keys=["image", "mask"]),
         EnsureTyped(keys=["image", "mask"]),
         CenterSpatialCropD(keys=["image", "mask"], roi_size=[350, 350, 180]),
-        ResizeD(keys=["image", "mask"], spatial_size=[256, 256, 112]),
+        ResizeD(keys=["image", "mask"], spatial_size=[256, 256, 64]),
         NormalizeIntensityd(keys="image", nonzero=True, channel_wise=True),
         ToTensorD(keys=["image", "mask"]),
     ]

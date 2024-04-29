@@ -32,6 +32,11 @@ from customModel import CustomModel
 
 # In[ ]:
 
+import gc
+
+gc.collect()
+
+torch.cuda.empty_cache()
 
 # Load the configuration file
 config_dict = {}
@@ -150,8 +155,7 @@ class Trainer:
         self.meter = Meter()
 
     def loss_and_logits(self, images: torch.Tensor, masks: torch.Tensor):
-        images = images.to(self.device)
-        masks = masks.to(self.device)
+
 
         logits = self.model(images)
         loss = self.criterion(logits, masks)
@@ -338,7 +342,6 @@ val_transform = Compose(
 
 
 # In[ ]:
-
 if config_dict['model']['model_type'] == 0:
     model = UNet(
         spatial_dims=config_dict['model']['spatial_dims'],

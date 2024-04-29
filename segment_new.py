@@ -172,7 +172,10 @@ class Trainer:
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-
+            if test_one:
+                np.save(self.output_dir + "/" + 'logits.npy', logits.detach().cpu().numpy())
+                np.save(self.output_dir + "/" + 'masks.npy', masks.detach().cpu().numpy())
+                np.save(self.output_dir + "/" + 'images.npy', images.detach().cpu().numpy())
             running_loss += loss.item()
             self.meter.update(logits.detach().cpu(), masks.detach().cpu())
 

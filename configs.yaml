@@ -3,29 +3,26 @@ model:
   in_channels: 1
   out_channels: 1
   dropout_prob: 0.2
-  channels:
-    - 4
-    - 8
+  channels_custom:
     - 16
     - 32
     - 64
   strides_custom:
+    - 4
     - 2
     - 2
-    - 2
-    - 2
-    - 2
+  channels:
+    - 8
+    - 16
+    - 32
+    - 64
   strides:
-    - - 4
-      - 4
-      - 2
-    - - 2
-      - 2
-      - 2
+    - 2
+    - 2
     - 2
     - 2
   num_res_units: 2
-  model_type: 1 # 0 is for monai UNET, 1 is for Custom Unet (i made)
+  model_type: 0 # 0 is for monai UNET, 1 is for Custom Unet (i made)
 
 
 
@@ -52,8 +49,7 @@ dataset:
   cache_dataset: True
 trainer:
   epochs: 50
-  lr: 0.0001
-  batch_size: 8
+  batch_size: 4
   num_workers: 0
   output_dir: "./data/output/"
   log_dir: "./data/output/logs/"

@@ -32,12 +32,6 @@ from customModel import CustomModel
 
 # In[ ]:
 
-import gc
-
-gc.collect()
-
-torch.cuda.empty_cache()
-
 # Load the configuration file
 config_dict = {}
 try:
@@ -154,13 +148,6 @@ class Trainer:
 
         self.meter = Meter()
 
-    def loss_and_logits(self, images: torch.Tensor, masks: torch.Tensor):
-
-
-        logits = self.model(images)
-        loss = self.criterion(logits, masks)
-        return loss, logits
-
     def next_epoch(self, epoch, test=False):
         self.model.train() if not test else self.model.eval()
         running_loss = 0.0
@@ -172,7 +159,9 @@ class Trainer:
             images, masks = data_dict['image'], data_dict['mask']
             del data_dict
             masks = 1 - masks
-            loss, logits = self.loss_and_logits(images, masks)
+
+            logits = self.model(images)
+            loss = self.criterion(logits, masks)
 
             if not test:
                 loss.backward()
@@ -342,6 +331,9 @@ val_transform = Compose(
 
 
 # In[ ]:
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
 if config_dict['model']['model_type'] == 0:
     model = UNet(
         spatial_dims=config_dict['model']['spatial_dims'],
@@ -355,8 +347,9 @@ else:
     model = CustomModel(
         in_channels=config_dict['model']['in_channels'],
         out_channels=config_dict['model']['out_channels'],
-        channels=config_dict['model']['channels'],
-        strides=config_dict['model']['strides_custom'])
+        channels=config_dict['model']['channels_custom'],
+        strides=config_dict['model']['strides_custom'],
+        device=device)
 
 
 
@@ -378,7 +371,6 @@ lr_scheduler = ReduceLROnPlateau(optimizer, config_dict['optimizer']['scheduler'
 
 criterion = DiceFocalLoss(sigmoid=True, gamma=0.75, squared_pred=True, reduction='mean')
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 print("running on device: ", device)
 

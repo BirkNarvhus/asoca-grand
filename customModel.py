@@ -5,24 +5,21 @@ import torch.nn as nn
 class Resunit(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
-        hidden = (out_channels // 2) if out_channels > 1 else 1
-
-        self.final_downsample = nn.Conv3d(hidden*2, out_channels, kernel_size=1) if out_channels == 1 else nn.Identity()
 
         self.project = nn.Identity()
-        if in_channels != hidden:
-            self.project = nn.Conv3d(in_channels, hidden, kernel_size=1)
+        if in_channels != out_channels:
+            self.project = nn.Conv3d(in_channels, out_channels, kernel_size=1)
         self.resunit = nn.Sequential(
-            nn.Conv3d(in_channels, hidden, kernel_size=3, padding=1),
-            nn.LeakyReLU(inplace=True),
-            nn.BatchNorm3d(hidden),
-            nn.Conv3d(hidden, hidden, kernel_size=3, padding=1),
-            nn.LeakyReLU(inplace=True),
-            nn.BatchNorm3d(hidden),
+            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm3d(out_channels),
+            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.LeakyReLU(),
+            nn.BatchNorm3d(out_channels),
         )
 
     def forward(self, x):
-        return self.final_downsample(torch.cat([self.resunit(x), self.project(x)], dim=1))
+        return self.resunit(x) + self.project(x)
 
 
 class Bottleneck(nn.Module):
@@ -32,6 +29,8 @@ class Bottleneck(nn.Module):
             nn.Conv3d(channels, channels, kernel_size=3, padding=1, dilation=1),
             nn.Conv3d(channels, channels, kernel_size=3, padding=2, dilation=2),
             nn.Conv3d(channels, channels, kernel_size=3, padding=4, dilation=4),
+            nn.Conv3d(channels, channels, kernel_size=3, padding=8, dilation=8),
+
         )
 
     def forward(self, x):
@@ -39,15 +38,16 @@ class Bottleneck(nn.Module):
         for layer in self.bottleneck:
             x = layer(x)
             buffer = buffer + x
-
         return buffer
 
 
 class CustomModel(nn.Module):
-    def __init__(self, in_channels, out_channels, channels, strides=(2, 2, 2), *args, **kwargs):
+    def __init__(self, in_channels, out_channels, channels, strides=(2, 2, 2), device='cpu'):
 
-        super().__init__(*args, **kwargs)
+        super().__init__()
         self.downlayers = nn.ModuleList()
+        self.device = device
+        self.to(device)
 
         if len(channels) != len(strides):
             raise ValueError("channels and strides must have the same length")
@@ -74,32 +74,35 @@ class CustomModel(nn.Module):
 
             upblock = nn.ModuleList()
             upblock.append(nn.Conv3d(_inChannel*2, _inChannel, kernel_size=1))
-            upblock.append(Resunit(_inChannel, _outChannel))
+            upblock.append(nn.Conv3d(_inChannel, _outChannel, kernel_size=1))
+            upblock.append(nn.LeakyReLU())
+            upblock.append(nn.BatchNorm3d(_outChannel))
             if strides[-(i+1)] != 1:
                 upblock.append(nn.Upsample(scale_factor=strides[-(i+1)]))
             upblock.append(Resunit(_outChannel, _outChannel))
             self.uplayers.append(nn.Sequential(*upblock))
-
+        self.uplayers = nn.Sequential(*self.uplayers)
     def forward(self, x):
         buffer = []
         for layer in self.downlayers:
             x = layer(x)
-            buffer.append(x.detach().cpu())
+            buffer.append(x)
 
-        x = self.bottle(x)
-        for layer in self.uplayers:
-            buffer_x = (buffer.pop()).to(x.device)
-            x = torch.cat([x, buffer_x], dim=1)
-            x = layer(x)
+        #x = self.bottle(x)
+        for a, layer in zip(buffer[::-1], self.uplayers):
+            x = layer(torch.cat([x, a], dim=1))
 
         return x
 
 def test():
-    model = CustomModel(1, 1, [16, 32, 64], strides=(2, 2, 2))
+    model = CustomModel(1, 1, [16, 32, 64], strides=(4, 2, 2))
+
     x = torch.randn(6, 1, 256, 256, 112)
     y = model(x)
     print(y.shape)
     assert y.shape == torch.Size([6, 1, 256, 256, 112])
+
+
 
 
 if __name__ == "__main__":

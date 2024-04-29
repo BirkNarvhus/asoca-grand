@@ -166,6 +166,7 @@ class Trainer:
         for i, data_dict in enumerate(self.train_loader if not test else self.test_loader):
             images, masks = data_dict['image'], data_dict['mask']
             del data_dict
+            masks = 1 - masks
             loss, logits = self.loss_and_logits(images, masks)
 
             if not test:

@@ -46,7 +46,7 @@ dataset:
   mask_path:
     - "../../../datasets/tdt4265/mic/asoca/Diseased/Annotations/"
     - "../../../datasets/tdt4265/mic/asoca/Normal/Annotations/"
-  cache_dataset: True
+  cache_dataset: False
 trainer:
   epochs: 50
   batch_size: 4

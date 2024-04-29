@@ -11,10 +11,10 @@ class Resunit(nn.Module):
             self.project = nn.Conv3d(in_channels, out_channels, kernel_size=1)
         self.resunit = nn.Sequential(
             nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.BatchNorm3d(out_channels),
             nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
-            nn.LeakyReLU(),
+            nn.ReLU(),
             nn.BatchNorm3d(out_channels),
         )
 
@@ -29,8 +29,6 @@ class Bottleneck(nn.Module):
             nn.Conv3d(channels, channels, kernel_size=3, padding=1, dilation=1),
             nn.Conv3d(channels, channels, kernel_size=3, padding=2, dilation=2),
             nn.Conv3d(channels, channels, kernel_size=3, padding=4, dilation=4),
-            nn.Conv3d(channels, channels, kernel_size=3, padding=8, dilation=8),
-
         )
 
     def forward(self, x):
@@ -86,11 +84,11 @@ class CustomModel(nn.Module):
         buffer = []
         for layer in self.downlayers:
             x = layer(x)
-            buffer.append(x)
+            buffer.append(x.detach().cpu())
 
         #x = self.bottle(x)
         for a, layer in zip(buffer[::-1], self.uplayers):
-            x = layer(torch.cat([x, a], dim=1))
+            x = layer(torch.cat([x, a.to(self.device)], dim=1))
 
         return x
 

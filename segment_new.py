@@ -70,7 +70,8 @@ class Meter:
     '''factory for storing and updating iou and dice scores.'''
 
     def __init__(self):
-        self.haus_dorf = HausdorffDistanceMetric(include_background=True, get_not_nans=False, percentile=95.0)
+        self.haus_dorf = HausdorffDistanceMetric(include_background=True, get_not_nans=False, percentile=95.0,
+                                                 reduction='mean_batch')
         self.dice = []
         self.iou = []
 
@@ -203,6 +204,10 @@ class Trainer:
             loss_history.append(test_loss)
 
 
+
+            if self.plot:
+                self.plot_metrics()
+
             # Early stopping
             if len(loss_history) > 4:
                 if loss_history[-1] > loss_history[-2] > loss_history[-3] > loss_history[-4]:
@@ -210,8 +215,13 @@ class Trainer:
                     break
                 loss_history.pop(0)
 
-            if self.plot:
-                self.plot_metrics()
+            if len(self.dice_scores['test']) > 4:
+                delta1 = abs(self.dice_scores['test'][-1] - self.dice_scores['test'][-2]) < 0.0001
+                delta12 = abs(self.dice_scores['test'][-2] - self.dice_scores['test'][-3]) < 0.0001
+                delta2 = abs(self.dice_scores['test'][-3] - self.dice_scores['test'][-4]) < 0.0001
+                if delta1 and delta12 and delta2:
+                    print("Early stopping")
+                    break
 
             if test_one:
                 print(f"1 epoch test loss: {test_loss:.4f} and metrics: dice - {metrics[0]:.6f} iou - {metrics[1]:.6f}",
@@ -343,7 +353,7 @@ else:
         in_channels=config_dict['model']['in_channels'],
         out_channels=config_dict['model']['out_channels'],
         channels=config_dict['model']['channels'],
-        strides=config_dict['model']['strides'])
+        strides=config_dict['model']['strides_custom'])
 
 
 train_set = monai.data.CacheDataset(data[:int(len(data)*0.8)], transform=train_transforms) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[:int(len(data)*0.8)], transform=train_transforms)

@@ -177,7 +177,7 @@ class Trainer:
                 np.save(self.output_dir + "/" + 'masks.npy', masks.detach().cpu().numpy())
                 np.save(self.output_dir + "/" + 'images.npy', images.detach().cpu().numpy())
             running_loss += loss.item()
-            self.meter.update(logits.detach().cpu().numpy(), masks.detach().cpu().numpy())
+            self.meter.update(logits.detach().cpu(), masks.detach().cpu())
 
         epoch_loss = running_loss / len(self.train_loader if not test else self.test_loader)
         dice, iou, hausdorff = self.meter.get_metrics()

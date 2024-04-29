@@ -159,6 +159,8 @@ class Trainer:
             images, masks = data_dict['image'], data_dict['mask']
             del data_dict
             masks = 1 - masks
+            images = images.to(self.device)
+            masks = masks.to(self.device)
 
             logits = self.model(images)
             loss = self.criterion(logits, masks)

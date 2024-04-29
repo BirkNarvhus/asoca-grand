@@ -5,21 +5,24 @@ import torch.nn as nn
 class Resunit(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
+        hidden = (out_channels // 2) if out_channels > 1 else 1
 
-        self.project = nn.Conv3d(in_channels, out_channels, kernel_size=1)
+        self.final_downsample = nn.Conv3d(hidden*2, out_channels, kernel_size=1) if out_channels == 1 else nn.Identity()
+
+        self.project = nn.Identity()
+        if in_channels != hidden:
+            self.project = nn.Conv3d(in_channels, hidden, kernel_size=1)
         self.resunit = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv3d(in_channels, hidden, kernel_size=3, padding=1),
             nn.LeakyReLU(inplace=True),
-            nn.BatchNorm3d(out_channels),
-            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm3d(hidden),
+            nn.Conv3d(hidden, hidden, kernel_size=3, padding=1),
             nn.LeakyReLU(inplace=True),
-            nn.BatchNorm3d(out_channels),
+            nn.BatchNorm3d(hidden),
         )
-        self.project_down = nn.Conv3d(out_channels*2, out_channels, kernel_size=1)
 
     def forward(self, x):
-        res = self.project(x)
-        return self.project_down(torch.cat([self.resunit(x), res], dim=1))
+        return self.final_downsample(torch.cat([self.resunit(x), self.project(x)], dim=1))
 
 
 class Bottleneck(nn.Module):
@@ -57,7 +60,6 @@ class CustomModel(nn.Module):
             _outChannel = channels[i]
             downblock = nn.ModuleList()
             downblock.append(Resunit(_inChannel, _outChannel))
-            downblock.append(Resunit(_outChannel, _outChannel))
             if strides[i] != 1:
                 downblock.append(nn.AvgPool3d(kernel_size=strides[i]))
             self.downlayers.append(nn.Sequential(*downblock))
@@ -75,7 +77,6 @@ class CustomModel(nn.Module):
             upblock.append(Resunit(_inChannel, _outChannel))
             if strides[-(i+1)] != 1:
                 upblock.append(nn.Upsample(scale_factor=strides[-(i+1)]))
-            upblock.append(Resunit(_outChannel, _outChannel))
             upblock.append(Resunit(_outChannel, _outChannel))
             self.uplayers.append(nn.Sequential(*upblock))
 
@@ -95,9 +96,10 @@ class CustomModel(nn.Module):
 
 def test():
     model = CustomModel(1, 1, [16, 32, 64], strides=(2, 2, 2))
-    x = torch.randn(1, 1, 256, 256, 112)
+    x = torch.randn(6, 1, 256, 256, 112)
     y = model(x)
-    assert y.shape == torch.Size([1, 1, 256, 256, 112])
+    print(y.shape)
+    assert y.shape == torch.Size([6, 1, 256, 256, 112])
 
 
 if __name__ == "__main__":

@@ -29,7 +29,6 @@ class Bottleneck(nn.Module):
             nn.Conv3d(channels, channels, kernel_size=3, padding=1, dilation=1),
             nn.Conv3d(channels, channels, kernel_size=3, padding=2, dilation=2),
             nn.Conv3d(channels, channels, kernel_size=3, padding=4, dilation=4),
-            nn.Conv3d(channels, channels, kernel_size=3, padding=8, dilation=8),
         )
 
     def forward(self, x):
@@ -84,22 +83,20 @@ class CustomModel(nn.Module):
         buffer = []
         for layer in self.downlayers:
             x = layer(x)
-            buffer.append(x)
+            buffer.append(x.detach().cpu())
 
         x = self.bottle(x)
         for layer in self.uplayers:
-            buffer_x = buffer.pop()
+            buffer_x = (buffer.pop()).to(x.device)
             x = torch.cat([x, buffer_x], dim=1)
             x = layer(x)
 
         return x
 
-
 def test():
-    model = CustomModel(1, 1, [8, 16, 32, 64], strides=(1, 2, 2, 2))
+    model = CustomModel(1, 1, [16, 32, 64], strides=(2, 2, 2))
     x = torch.randn(1, 1, 256, 256, 112)
     y = model(x)
-    print(y.shape)
     assert y.shape == torch.Size([1, 1, 256, 256, 112])
 
 

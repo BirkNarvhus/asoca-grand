@@ -356,6 +356,7 @@ else:
         strides=config_dict['model']['strides_custom'])
 
 
+
 train_set = monai.data.CacheDataset(data[:int(len(data)*0.8)], transform=train_transforms) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[:int(len(data)*0.8)], transform=train_transforms)
 test_set = monai.data.CacheDataset(data[int(len(data)*0.8):], transform=val_transform) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[int(len(data)*0.8):], transform=val_transform)
 

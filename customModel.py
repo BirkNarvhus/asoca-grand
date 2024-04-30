@@ -7,21 +7,19 @@ class Resunit(nn.Module):
         super().__init__()
 
         self.project = nn.Identity()
-        hidden = out_channels//2
-        if in_channels != hidden:
-            self.project = nn.Conv3d(in_channels, hidden, kernel_size=1)
+        if in_channels != out_channels:
+            self.project = nn.Conv3d(in_channels, out_channels, kernel_size=1)
         self.resunit = nn.Sequential(
-            nn.Conv3d(hidden, hidden, kernel_size=3, padding=1),
+            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.BatchNorm3d(hidden),
-            nn.Conv3d(hidden, hidden, kernel_size=3, padding=1),
+            nn.BatchNorm3d(out_channels),
+            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.BatchNorm3d(hidden),
+            nn.BatchNorm3d(out_channels),
         )
 
     def forward(self, x):
-        x = self.project(x)
-        return torch.cat([x, self.resunit(x)], dim=1)
+        return self.resunit(x) + self.project(x)
 
 
 class Bottleneck(nn.Module):
@@ -77,15 +75,15 @@ class CustomModel(nn.Module):
                 upblock.append(nn.Upsample(scale_factor=strides[-(i+1)]))
 
             upblock.append(nn.Conv3d(_inChannel*2, _outChannel, kernel_size=1))
-            upblock.append(nn.LeakyReLU())
+            upblock.append(nn.ReLU())
             upblock.append(nn.BatchNorm3d(_outChannel))
 
             upblock.append(nn.Conv3d(_outChannel, _outChannel, kernel_size=3, padding=1))
-            upblock.append(nn.LeakyReLU())
+            upblock.append(nn.ReLU())
             upblock.append(nn.BatchNorm3d(_outChannel))
 
             upblock.append(nn.Conv3d(_outChannel, _outChannel, kernel_size=3, padding=1))
-            upblock.append(nn.LeakyReLU())
+            upblock.append(nn.ReLU())
             upblock.append(nn.BatchNorm3d(_outChannel))
 
             self.uplayers.append(nn.Sequential(*upblock))
@@ -105,7 +103,9 @@ class CustomModel(nn.Module):
 def test():
     model = CustomModel(1, 1, [16, 32, 64], strides=(4, 2, 2))
 
-
+    x = torch.randn(1, 1, 128, 128, 64)
+    y = model(x)
+    print(y.shape)
 
 
 if __name__ == "__main__":

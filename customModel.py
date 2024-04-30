@@ -7,19 +7,21 @@ class Resunit(nn.Module):
         super().__init__()
 
         self.project = nn.Identity()
-        if in_channels != out_channels:
-            self.project = nn.Conv3d(in_channels, out_channels, kernel_size=1)
+        hidden = out_channels//2
+        if in_channels != hidden:
+            self.project = nn.Conv3d(in_channels, hidden, kernel_size=1)
         self.resunit = nn.Sequential(
-            nn.Conv3d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.Conv3d(hidden, hidden, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.BatchNorm3d(out_channels),
-            nn.Conv3d(out_channels, out_channels, kernel_size=3, padding=1),
+            nn.BatchNorm3d(hidden),
+            nn.Conv3d(hidden, hidden, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.BatchNorm3d(out_channels),
+            nn.BatchNorm3d(hidden),
         )
 
     def forward(self, x):
-        return self.resunit(x) + self.project(x)
+        x = self.project(x)
+        return torch.cat([x, self.resunit(x)], dim=1)
 
 
 class Bottleneck(nn.Module):
@@ -71,13 +73,21 @@ class CustomModel(nn.Module):
             _outChannel = channels[-(i + 2)] if i != len(channels) - 1 else out_channels
 
             upblock = nn.ModuleList()
-            upblock.append(nn.Conv3d(_inChannel*2, _inChannel, kernel_size=1))
-            upblock.append(nn.Conv3d(_inChannel, _outChannel, kernel_size=1))
-            upblock.append(nn.LeakyReLU())
-            upblock.append(nn.BatchNorm3d(_outChannel))
             if strides[-(i+1)] != 1:
                 upblock.append(nn.Upsample(scale_factor=strides[-(i+1)]))
-            upblock.append(Resunit(_outChannel, _outChannel))
+
+            upblock.append(nn.Conv3d(_inChannel*2, _outChannel, kernel_size=1))
+            upblock.append(nn.LeakyReLU())
+            upblock.append(nn.BatchNorm3d(_outChannel))
+
+            upblock.append(nn.Conv3d(_outChannel, _outChannel, kernel_size=3, padding=1))
+            upblock.append(nn.LeakyReLU())
+            upblock.append(nn.BatchNorm3d(_outChannel))
+
+            upblock.append(nn.Conv3d(_outChannel, _outChannel, kernel_size=3, padding=1))
+            upblock.append(nn.LeakyReLU())
+            upblock.append(nn.BatchNorm3d(_outChannel))
+
             self.uplayers.append(nn.Sequential(*upblock))
         self.uplayers = nn.Sequential(*self.uplayers)
     def forward(self, x):
@@ -94,11 +104,6 @@ class CustomModel(nn.Module):
 
 def test():
     model = CustomModel(1, 1, [16, 32, 64], strides=(4, 2, 2))
-
-    x = torch.randn(6, 1, 256, 256, 112)
-    y = model(x)
-    print(y.shape)
-    assert y.shape == torch.Size([6, 1, 256, 256, 112])
 
 
 

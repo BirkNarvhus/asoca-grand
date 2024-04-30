@@ -343,7 +343,6 @@ if config_dict['model']['model_type'] == 0:
         out_channels=config_dict['model']['out_channels'],
         channels=config_dict['model']['channels'],
         strides=config_dict['model']['strides'],
-        num_res_units=config_dict['model']['num_res_units'],
         dropout=config_dict['model']['dropout_prob'])
 else:
     model = CustomModel(

@@ -44,6 +44,12 @@ except FileNotFoundError:
 
 # In[ ]:
 
+"""
+Metrics for testing model
+metrics used are dice, iou and hd95 distance
+"""
+
+
 def dice_metric(y_pred, y):
     y_pred = (y_pred > 0.5).float()
     batch_dice = []
@@ -65,8 +71,12 @@ def iou_metric(y_pred, y):
     return np.mean(batch_dice)
 
 
+
 class Meter:
-    '''factory for storing and updating iou and dice scores.'''
+    """
+    Helper class for metrics
+    and implements hd95
+    """
 
     def __init__(self):
         self.haus_dorf = HausdorffDistanceMetric(include_background=True, get_not_nans=False, percentile=95.0,
@@ -106,6 +116,9 @@ class Meter:
 
 
 class Trainer:
+    """
+    Class for training model
+    """
     def __init__(self,
                  model: nn.Module,
                  optimizer: torch.optim.Optimizer,
@@ -149,6 +162,14 @@ class Trainer:
         self.meter = Meter()
 
     def next_epoch(self, epoch, test=False):
+        """
+        Runs one epoch
+        changes test loader based on param
+        param: epoch (int) current epoch
+        param: test (bool) if test or not
+
+        return: epoch_loss, (dice, iou, hd95)
+        """
         self.model.train() if not test else self.model.eval()
         running_loss = 0.0
 
@@ -188,6 +209,9 @@ class Trainer:
         return epoch_loss, (dice, iou, hausdorff)
 
     def train(self):
+        """
+        runs the training loop
+        """
         loss_history = []
         for epoch in tqdm(range(self.epochs)):
             self.next_epoch(epoch, test=False)
@@ -197,8 +221,6 @@ class Trainer:
                 self.lr_scheduler.step(test_loss)
 
             loss_history.append(test_loss)
-
-
 
             if self.plot:
                 self.plot_metrics()
@@ -234,6 +256,9 @@ class Trainer:
             self.save_log()
 
     def plot_metrics(self):
+        """
+        plots metrics
+        """
         plt.figure(figsize=(12, 6))
         plt.subplot(1, 2, 1)
         plt.plot(self.losses['train'], label='train')
@@ -263,6 +288,11 @@ class Trainer:
         plt.close()
 
     def save_log(self):
+        """
+        save logs.
+        the logs are converted to dataframe
+        This makes it easy saving as csv
+        """
         torch.save(self.model.state_dict(), self.output_dir + "/" + 'last_epoch.pth')
 
         log = pd.DataFrame({
@@ -278,6 +308,10 @@ class Trainer:
         log.to_csv(self.log_dir + "/" + 'log.csv', index=False)
 
     def load_model(self, path: str):
+        """
+        loading model from specified checkpoint file
+        param: path (str) path to checkpoint
+        """
         print(f"Loading model from {path}")
         self.model.load_state_dict(torch.load(path))
 
@@ -286,6 +320,12 @@ class Trainer:
 
 
 def get_paths(path_array):
+    """
+    adds all paths in sub folders to array
+    each 3d model is .nrrd files in subfolders
+    param: path_array array of paths
+    return: listed glob paths
+    """
     if isinstance(path_array, str):
         path_array = [path_array]
     
@@ -303,6 +343,9 @@ path_to_image = get_paths(config_dict['dataset']['image_path'])
 path_to_masks = get_paths(config_dict['dataset']['mask_path'])
 data = [{'image': image, 'mask': mask} for image, mask in zip(path_to_image, path_to_masks)]
 
+"""
+transformations
+"""
 train_transforms = Compose([
     LoadImageD(keys=["image", "mask"], reader="itkreader"),
     EnsureChannelFirstd(keys=["image", "mask"]),
@@ -329,13 +372,10 @@ val_transform = Compose(
 )
 
 
-
-
-
 # In[ ]:
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-
+# load configs
 if config_dict['model']['model_type'] == 0:
     model = UNet(
         spatial_dims=config_dict['model']['spatial_dims'],
@@ -352,8 +392,7 @@ else:
         strides=config_dict['model']['strides_custom'],
         device=device)
 
-
-
+# load data loaders
 train_set = monai.data.CacheDataset(data[:int(len(data)*0.8)], transform=train_transforms) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[:int(len(data)*0.8)], transform=train_transforms)
 test_set = monai.data.CacheDataset(data[int(len(data)*0.8):], transform=val_transform) if config_dict['dataset']['cache_dataset'] else monai.data.Dataset(data[int(len(data)*0.8):], transform=val_transform)
 
@@ -363,6 +402,7 @@ test_loader = monai.data.DataLoader(test_set, batch_size=config_dict['trainer'][
 print(f"Train set size: {len(train_set)}")
 print(f"Test set size: {len(test_set)}")
 
+# set up optimizer and scheduler
 optimizer = torch.optim.Adam(model.parameters(), config_dict['optimizer']['params']['lr'])
 
 
@@ -370,11 +410,12 @@ lr_scheduler = ReduceLROnPlateau(optimizer, config_dict['optimizer']['scheduler'
                                  factor=config_dict['optimizer']['scheduler']['params']['factor'],
                                  patience=config_dict['optimizer']['scheduler']['params']['patience'])
 
+#loss func
 criterion = DiceFocalLoss(sigmoid=True, gamma=0.75, squared_pred=True, reduction='mean')
 
 
 print("running on device: ", device)
-
+# set up trainer class
 trainer = Trainer(model, optimizer, criterion, train_loader, test_loader, epochs=config_dict['trainer']['epochs'],
                   lr_scheduler=lr_scheduler, plot=config_dict['trainer']['plot'], device=device,
                   log_dir=config_dict['trainer']['log_dir'], checkpoint_dir=config_dict['trainer']['checkpoint_dir'],
